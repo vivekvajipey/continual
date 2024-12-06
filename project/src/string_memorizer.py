@@ -67,7 +67,7 @@ def run_experiments():
     Run the experiments to train models and record results.
     """
     # Parameters for the experiment
-    model_sizes = ['gpt2', 'gpt2-medium']  # List of GPT-2 model sizes to test
+    model_sizes = ['gpt2', 'gpt2-medium', 'gpt2-large', 'gpt2-xl']  # Updated model sizes
     string_lengths = [10, 20, 30]          # List of string lengths (in characters) to test
     epochs = 1000                          # Number of training epochs for each model
     num_samples = 100                      # Number of samples to generate during evaluation
@@ -214,8 +214,8 @@ def run_experiments():
                 del model                  # Ensure the original model is deleted
                 torch.cuda.empty_cache()   # Clear CUDA cache to free up memory
 
-    # Log a message indicating the completion of the experiment
-    logging.info("\nExperiment completed. Results have been saved to 'results.csv'.")
+        # Log a message indicating the completion of the experiment
+        logging.info("\nExperiment completed. Results have been saved to 'results.csv'.")
 
 def analyze_results():
     """
