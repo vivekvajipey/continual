@@ -51,16 +51,18 @@ def generate_random_string(length):
     """
     Generate a random string of specified length.
 
-    The string includes ASCII letters, digits, punctuation, and spaces.
+    The string includes ASCII letters, digits, punctuation (excluding '|'), and spaces.
 
     Args:
         length (int): The desired length of the random string.
 
     Returns:
-        str: Randomly generated string.
+        str: Randomly generated string without the '|' character.
     """
-    chars = string.ascii_letters + string.digits + string.punctuation + ' '
-    return ''.join(random.choice(chars) for _ in range(length))
+    chars = string.ascii_letters + string.digits + string.punctuation.replace('|', '') + ' '
+    random_string = ''.join(random.choice(chars) for _ in range(length))
+    assert '|' not in random_string, "Random string contains '|' character"
+    return random_string
 
 def run_experiments():
     """
@@ -195,17 +197,31 @@ def run_experiments():
                         logging.info(f"          Generated: {sample}")
                         logging.info(f"          Target   : {random_string}\n")
 
+                    # Process random_string to escape newline characters
+                    processed_random_string = random_string.replace('\n', '\\n')
+
+                    # Process generated_samples to replace strings containing '|' or '\n'
+                    processed_generated_samples = []
+                    for sample in generated_samples:
+                        # Replace newline characters in the sample
+                        sample = sample.replace('\n', '\\n')
+                        if '|' in sample:
+                            processed_generated_samples.append('error')
+                        else:
+                            processed_generated_samples.append(sample)
+
+                    # Join the processed generated samples into a single string (separated by '|')
+                    samples_str = ' | '.join(processed_generated_samples)
+
                     # Save the results to the CSV file
-                    with open(csv_file, mode='a', newline='') as file:
-                        writer = csv.writer(file)
-                        # Join the generated samples into a single string (separated by '|')
-                        samples_str = ' | '.join(generated_samples)
+                    with open(csv_file, mode='a', newline='', encoding='utf-8') as file:
+                        writer = csv.writer(file, quoting=csv.QUOTE_MINIMAL)
                         writer.writerow([
                             model_size,
                             char_length,
                             lora_rank,
                             f"{success_rate_percent:.2f}",
-                            random_string,
+                            processed_random_string,
                             samples_str
                         ])
 
