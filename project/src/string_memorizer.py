@@ -25,6 +25,8 @@ import argparse
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import torch.utils.data as data
+import numpy as np
 
 # Configure logging to write outputs to a file
 logging.basicConfig(
@@ -64,34 +66,36 @@ def generate_random_string(length):
     assert '|' not in random_string, "Random string contains '|' character"
     return random_string
 
-def run_experiments():
+def run_experiments(model_sizes, string_lengths, epochs_list, lora_ranks, batch_size, num_samples):
     """
     Run the experiments to train models and record results.
-    """
-    # Parameters for the experiment
-    model_sizes = ['gpt2', 'gpt2-medium', 'gpt2-large', 'gpt2-xl']  # Updated model sizes
-    string_lengths = [10, 20, 30]          # List of string lengths (in characters) to test
-    epochs = 1000                          # Number of training epochs for each model
-    num_samples = 100                      # Number of samples to generate during evaluation
-    lora_ranks = [1, 2, 4, 8, 16, 32]      # List of LoRA ranks to test
 
+    Args:
+        model_sizes (list): List of GPT-2 model sizes to test.
+        string_lengths (list): List of string lengths to test.
+        epochs_list (list): List of epoch counts to test.
+        lora_ranks (list): List of LoRA ranks to test.
+        batch_size (int): Batch size for training.
+        num_samples (int): Number of samples to generate during evaluation.
+    """
     # CSV file to store the results
     csv_file = 'results.csv'
 
     # Check if CSV file exists, if not, create it and write the header
     if not os.path.exists(csv_file):
-        with open(csv_file, mode='w', newline='') as file:
-            writer = csv.writer(file)
+        with open(csv_file, mode='w', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file, quoting=csv.QUOTE_MINIMAL)
             writer.writerow([
                 'ModelSize',
                 'StringLength',
+                'Epochs',
                 'LoRARank',
                 'SuccessRate',
                 'TrueString',
                 'GeneratedSamples'
             ])
 
-    # Loop over each GPT-2 model size
+    # Loop over each combination of hyperparameters
     for model_size in model_sizes:
         logging.info(f"\nTesting GPT-2 Model Size: {model_size}")
 
@@ -99,7 +103,6 @@ def run_experiments():
         tokenizer = GPT2Tokenizer.from_pretrained(model_size)
         tokenizer.pad_token = tokenizer.eos_token  # Set pad_token_id to eos_token_id to avoid warnings
 
-        # Loop over each string length
         for char_length in string_lengths:
             logging.info(f"\n  Testing String Length (characters): {char_length}")
 
@@ -114,124 +117,127 @@ def run_experiments():
             token_length = input_ids.shape[1]
             logging.info(f"  Tokenized input length (tokens): {token_length}")
 
-            # Loop over each LoRA rank
-            for lora_rank in lora_ranks:
-                logging.info(f"\n    Testing LoRA Rank: {lora_rank}")
+            # Create a dataset of repeated input_ids and labels for batching
+            dataset = data.TensorDataset(input_ids.repeat(batch_size, 1), labels.repeat(batch_size, 1))
+            dataloader = data.DataLoader(dataset, batch_size=batch_size)
 
-                # Re-instantiate the base GPT-2 model for each LoRA rank to avoid adapter accumulation
-                model = GPT2LMHeadModel.from_pretrained(model_size).to(device)
-                model.train()
+            for epochs in epochs_list:
+                logging.info(f"\n    Testing Number of Epochs: {epochs}")
 
-                # Set pad_token_id and eos_token_id in the model's configuration to avoid warnings
-                model.config.pad_token_id = tokenizer.eos_token_id
-                model.config.eos_token_id = tokenizer.eos_token_id  # Optional but recommended
+                for lora_rank in lora_ranks:
+                    logging.info(f"\n      Testing LoRA Rank: {lora_rank}")
 
-                # Configure LoRA with the current rank
-                lora_config = LoraConfig(
-                    r=lora_rank,               # Rank of the LoRA adaptation matrices
-                    lora_alpha=16,             # Scaling factor for LoRA weights
-                    target_modules=["c_attn"], # Modules to apply LoRA to (attention layers)
-                    lora_dropout=0.05,         # Dropout probability for LoRA layers
-                    bias="none",               # Not using bias in LoRA layers
-                    task_type=TaskType.CAUSAL_LM  # Task type: Causal Language Modeling
-                )
+                    # Re-instantiate the base GPT-2 model for each combination
+                    model = GPT2LMHeadModel.from_pretrained(model_size).to(device)
+                    model.train()
 
-                # Apply LoRA to the GPT-2 model to create a modified model
-                lora_model = get_peft_model(model, lora_config).to(device)
-                lora_model.train()
+                    # Set pad_token_id and eos_token_id in the model's configuration to avoid warnings
+                    model.config.pad_token_id = tokenizer.eos_token_id
+                    model.config.eos_token_id = tokenizer.eos_token_id  # Optional but recommended
 
-                # Set up the optimizer for training
-                optimizer = torch.optim.AdamW(lora_model.parameters(), lr=1e-4)
+                    # Configure LoRA with the current rank
+                    lora_config = LoraConfig(
+                        r=lora_rank,               # Rank of the LoRA adaptation matrices
+                        lora_alpha=16,             # Scaling factor for LoRA weights
+                        target_modules=["c_attn"], # Modules to apply LoRA to (attention layers)
+                        lora_dropout=0.05,         # Dropout probability for LoRA layers
+                        bias="none",               # Not using bias in LoRA layers
+                        task_type=TaskType.CAUSAL_LM  # Task type: Causal Language Modeling
+                    )
 
-                # Calculate logging interval (logging every 1/10th of the total epochs)
-                logging_interval = max(1, epochs // 10)
+                    # Apply LoRA to the GPT-2 model to create a modified model
+                    lora_model = get_peft_model(model, lora_config).to(device)
+                    lora_model.train()
 
-                # Training loop
-                for epoch in range(epochs):
-                    # Forward pass: Compute predicted outputs by passing inputs to the model
-                    outputs = lora_model(input_ids=input_ids, labels=labels)
-                    loss = outputs.loss  # Compute the loss
-                    loss.backward()      # Backpropagate the gradients
-                    optimizer.step()     # Update model parameters
-                    optimizer.zero_grad()# Zero the gradients for the next iteration
+                    # Set up the optimizer for training
+                    optimizer = torch.optim.AdamW(lora_model.parameters(), lr=1e-4)
 
-                    # Log the loss at specified intervals
-                    if (epoch + 1) % logging_interval == 0 or epoch == 0:
-                        logging.info(f"      Epoch {epoch+1}/{epochs}, Loss: {loss.item():.4f}")
+                    # Training loop using DataLoader
+                    for epoch in range(epochs):
+                        for batch_input_ids, batch_labels in dataloader:
+                            outputs = lora_model(input_ids=batch_input_ids, labels=batch_labels)
+                            loss = outputs.loss
+                            loss.backward()
+                            optimizer.step()
+                            optimizer.zero_grad()
+                        # Optionally, add logging here if needed
+                        if (epoch + 1) % max(1, epochs // 10) == 0 or epoch == 0:
+                            logging.info(f"      Epoch {epoch+1}/{epochs}, Loss: {loss.item():.4f}")
 
-                # Evaluation phase
-                lora_model.eval()
-                with torch.no_grad():
-                    success_count = 0           # Counter for successful reproductions
-                    generated_samples = []      # List to store generated samples
+                    # Evaluation phase
+                    lora_model.eval()
+                    with torch.no_grad():
+                        success_count = 0           # Counter for successful reproductions
+                        generated_samples = []      # List to store generated samples
 
-                    # Generate samples to evaluate the model's memorization
-                    for i in range(num_samples):
-                        generated_ids = lora_model.generate(
-                            input_ids=input_ids[:, :1],      # Start generation from the first token
-                            max_new_tokens=token_length - 1, # Generate enough tokens to match the input length
-                            attention_mask=inputs['attention_mask'][:, :1],  # Attention mask for the input_ids
-                            do_sample=True,                  # Enable stochastic sampling
-                            top_k=50,                        # Consider the top K tokens at each step
-                            temperature=1.0                  # Sampling temperature for randomness
-                        )
-                        generated_text = tokenizer.decode(generated_ids[0], skip_special_tokens=True).strip()
+                        # Generate samples to evaluate the model's memorization
+                        for i in range(num_samples):
+                            generated_ids = lora_model.generate(
+                                input_ids=input_ids[:, :1],
+                                max_new_tokens=token_length - 1,
+                                attention_mask=inputs['attention_mask'][:, :1],
+                                do_sample=True,
+                                top_k=50,
+                                temperature=1.0
+                            )
+                            generated_text = tokenizer.decode(generated_ids[0], skip_special_tokens=True).strip()
 
-                        # Store up to 10 samples for logging
-                        if i < 10:
-                            generated_samples.append(generated_text)
+                            # Store up to 10 samples for logging
+                            if i < 10:
+                                generated_samples.append(generated_text)
 
-                        # Increment success count if the generated text matches the target string
-                        if generated_text == random_string:
-                            success_count += 1
+                            # Increment success count if the generated text matches the target string
+                            if generated_text == random_string:
+                                success_count += 1
 
-                    # Calculate the success rate for this LoRA rank
-                    success_fraction = success_count / num_samples
-                    success_rate_percent = success_fraction * 100
-                    logging.info(f"      Success rate: {success_count}/{num_samples} ({success_rate_percent:.2f}%)")
+                        # Calculate the success rate for this combination
+                        success_fraction = success_count / num_samples
+                        success_rate_percent = success_fraction * 100
+                        logging.info(f"      Success rate: {success_count}/{num_samples} ({success_rate_percent:.2f}%)")
 
-                    # Log the first 10 generated samples for inspection
-                    logging.info("\n      Sampled outputs (first 10 samples):")
-                    for idx, sample in enumerate(generated_samples, 1):
-                        logging.info(f"        Sample {idx}:")
-                        logging.info(f"          Generated: {sample}")
-                        logging.info(f"          Target   : {random_string}\n")
+                        # Log the first 10 generated samples for inspection
+                        logging.info("\n      Sampled outputs (first 10 samples):")
+                        for idx, sample in enumerate(generated_samples, 1):
+                            logging.info(f"        Sample {idx}:")
+                            logging.info(f"          Generated: {sample}")
+                            logging.info(f"          Target   : {random_string}\n")
 
-                    # Process random_string to escape newline characters
-                    processed_random_string = random_string.replace('\n', '\\n')
+                        # Process random_string to escape newline characters
+                        processed_random_string = random_string.replace('\n', '\\n')
 
-                    # Process generated_samples to replace strings containing '|' or '\n'
-                    processed_generated_samples = []
-                    for sample in generated_samples:
-                        # Replace newline characters in the sample
-                        sample = sample.replace('\n', '\\n')
-                        if '|' in sample:
-                            processed_generated_samples.append('error')
-                        else:
-                            processed_generated_samples.append(sample)
+                        # Process generated_samples to replace strings containing '|' or '\n'
+                        processed_generated_samples = []
+                        for sample in generated_samples:
+                            # Replace newline characters in the sample
+                            sample = sample.replace('\n', '\\n')
+                            if '|' in sample:
+                                processed_generated_samples.append('error')
+                            else:
+                                processed_generated_samples.append(sample)
 
-                    # Join the processed generated samples into a single string (separated by '|')
-                    samples_str = ' | '.join(processed_generated_samples)
+                        # Join the processed generated samples into a single string (separated by '|')
+                        samples_str = ' | '.join(processed_generated_samples)
 
-                    # Save the results to the CSV file
-                    with open(csv_file, mode='a', newline='', encoding='utf-8') as file:
-                        writer = csv.writer(file, quoting=csv.QUOTE_MINIMAL)
-                        writer.writerow([
-                            model_size,
-                            char_length,
-                            lora_rank,
-                            f"{success_rate_percent:.2f}",
-                            processed_random_string,
-                            samples_str
-                        ])
+                        # Save the results to the CSV file
+                        with open(csv_file, mode='a', newline='', encoding='utf-8') as file:
+                            writer = csv.writer(file, quoting=csv.QUOTE_MINIMAL)
+                            writer.writerow([
+                                model_size,
+                                char_length,
+                                epochs,
+                                lora_rank,
+                                f"{success_rate_percent:.2f}",
+                                processed_random_string,
+                                samples_str
+                            ])
 
-                # Clean up to free memory
-                del lora_model
-                del model                  # Ensure the original model is deleted
-                torch.cuda.empty_cache()   # Clear CUDA cache to free up memory
+                    # Clean up to free memory
+                    del lora_model
+                    del model
+                    torch.cuda.empty_cache()
 
-        # Log a message indicating the completion of the experiment
-        logging.info("\nExperiment completed. Results have been saved to 'results.csv'.")
+    # Log a message indicating the completion of the experiment
+    logging.info("\nExperiment completed. Results have been saved to 'results.csv'.")
 
 def analyze_results():
     """
@@ -257,16 +263,20 @@ def analyze_results():
     # Get unique string lengths
     string_lengths = sorted(df['StringLength'].unique())
 
+    # Calculate 'n' as the ceiling of the square root of the number of string lengths
+    num_lengths = len(string_lengths)
+    n = int(np.ceil(np.sqrt(num_lengths)))
+
     # Set up the plotting style
     sns.set(style='whitegrid')
 
-    # Create subplots for each string length
-    num_lengths = len(string_lengths)
-    fig, axes = plt.subplots(1, num_lengths, figsize=(6 * num_lengths, 5), sharey=True)
+    # Create subplots in an n x n grid
+    fig, axes = plt.subplots(n, n, figsize=(6 * n, 5 * n), sharey=True)
 
-    if num_lengths == 1:
-        axes = [axes]  # When there's only one subplot, make it iterable
+    # Flatten the axes array for easy iteration
+    axes = axes.flatten()
 
+    # Iterate over the axes and string lengths
     for ax, length in zip(axes, string_lengths):
         # Subset data for the current string length
         subset = df[df['StringLength'] == length]
@@ -290,6 +300,10 @@ def analyze_results():
         ax.set_xticks(df['LoRARank'].unique())
         ax.legend(title='Model Size')
 
+    # Hide any unused subplots
+    for i in range(len(string_lengths), len(axes)):
+        fig.delaxes(axes[i])
+
     plt.tight_layout()
     plt.savefig('analysis_plot.png')
     plt.show()
@@ -298,13 +312,27 @@ def analyze_results():
 if __name__ == "__main__":
     # Parse command-line arguments
     parser = argparse.ArgumentParser(description='String Memorization Experiment')
-    parser.add_argument('--run_experiments', action='store_true', help='Run the experiments')
     parser.add_argument('--analyze', action='store_true', help='Analyze the results and generate plots')
+    parser.add_argument('--models', nargs='+', default=['gpt2', 'gpt2-medium', 'gpt2-large', 'gpt2-xl'],
+                        help='List of GPT-2 models to test')
+    parser.add_argument('--string_lengths', nargs='+', type=int, default=[10, 20, 30],
+                        help='List of string lengths to test')
+    parser.add_argument('--epochs', nargs='+', type=int, default=[1000],
+                        help='List of epoch counts to test')
+    parser.add_argument('--lora_ranks', nargs='+', type=int, default=[1, 2, 4, 8, 16, 32],
+                        help='List of LoRA ranks to test')
+    parser.add_argument('--batch_size', type=int, default=1, help='Batch size for training')
+    parser.add_argument('--num_samples', type=int, default=100, help='Number of samples to generate during evaluation')
     args = parser.parse_args()
 
-    if args.run_experiments:
-        run_experiments()
-    elif args.analyze:
+    if args.analyze:
         analyze_results()
     else:
-        print("Please specify an action: --run_experiments or --analyze")
+        run_experiments(
+            model_sizes=args.models,
+            string_lengths=args.string_lengths,
+            epochs_list=args.epochs,
+            lora_ranks=args.lora_ranks,
+            batch_size=args.batch_size,
+            num_samples=args.num_samples
+        )
