@@ -27,6 +27,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import torch.utils.data as data
 import numpy as np
+import re  # Import for regular expressions
 
 # Configure logging to write outputs to a file
 logging.basicConfig(
@@ -66,7 +67,7 @@ def generate_random_string(length):
     assert '|' not in random_string, "Random string contains '|' character"
     return random_string
 
-def run_experiments(model_sizes, string_lengths, epochs_list, lora_ranks, batch_size, num_samples):
+def run_experiments(model_sizes, string_lengths, epochs_list, lora_ranks, batch_size, num_samples, target_layers, target_module_types):
     """
     Run the experiments to train models and record results.
 
@@ -77,6 +78,8 @@ def run_experiments(model_sizes, string_lengths, epochs_list, lora_ranks, batch_
         lora_ranks (list): List of LoRA ranks to test.
         batch_size (int): Batch size for training.
         num_samples (int): Number of samples to generate during evaluation.
+        target_layers (list): List of transformer layer indices to apply LoRA to.
+        target_module_types (list): List of module types (e.g., ['c_attn']) to apply LoRA to.
     """
     # CSV file to store the results
     csv_file = 'results.csv'
@@ -135,14 +138,32 @@ def run_experiments(model_sizes, string_lengths, epochs_list, lora_ranks, batch_
                     model.config.pad_token_id = tokenizer.eos_token_id
                     model.config.eos_token_id = tokenizer.eos_token_id  # Optional but recommended
 
+                    # Determine the total number of layers in the model
+                    total_layers = len(model.transformer.h)
+
+                    # If target_layers is empty, apply LoRA to all layers
+                    if not target_layers:
+                        target_layers_indices = list(range(total_layers))
+                    else:
+                        target_layers_indices = target_layers
+
+                    # Construct target_modules based on specified layers and module types
+                    target_modules = []
+                    for layer_idx in target_layers_indices:
+                        for module_type in target_module_types:
+                            module_pattern = f"transformer.h.{layer_idx}.*{module_type}.*"
+                            target_modules.append(module_pattern)
+
+                    logging.info(f"      Applying LoRA to modules: {target_modules}")
+
                     # Configure LoRA with the current rank
                     lora_config = LoraConfig(
-                        r=lora_rank,               # Rank of the LoRA adaptation matrices
-                        lora_alpha=16,             # Scaling factor for LoRA weights
-                        target_modules=["c_attn"], # Modules to apply LoRA to (attention layers)
-                        lora_dropout=0.05,         # Dropout probability for LoRA layers
-                        bias="none",               # Not using bias in LoRA layers
-                        task_type=TaskType.CAUSAL_LM  # Task type: Causal Language Modeling
+                        r=lora_rank,
+                        lora_alpha=16,
+                        target_modules=target_modules,
+                        lora_dropout=0.05,
+                        bias="none",
+                        task_type=TaskType.CAUSAL_LM
                     )
 
                     # Apply LoRA to the GPT-2 model to create a modified model
@@ -160,9 +181,24 @@ def run_experiments(model_sizes, string_lengths, epochs_list, lora_ranks, batch_
                             loss.backward()
                             optimizer.step()
                             optimizer.zero_grad()
-                        # Optionally, add logging here if needed
+                        # Evaluate and log accuracy at regular intervals
                         if (epoch + 1) % max(1, epochs // 10) == 0 or epoch == 0:
                             logging.info(f"      Epoch {epoch+1}/{epochs}, Loss: {loss.item():.4f}")
+                            # Evaluation during training
+                            lora_model.eval()
+                            with torch.no_grad():
+                                # Generate output for the training input
+                                generated_ids = lora_model.generate(
+                                    input_ids=input_ids[:, :1],
+                                    max_new_tokens=token_length - 1,
+                                    attention_mask=inputs['attention_mask'][:, :1],
+                                    do_sample=False,  # Deterministic generation
+                                )
+                                generated_text = tokenizer.decode(generated_ids[0], skip_special_tokens=True).strip()
+                                # Calculate exact match accuracy
+                                is_exact_match = int(generated_text == random_string)
+                                logging.info(f"      Training Accuracy: {is_exact_match * 100:.2f}%")
+                            lora_model.train()
 
                     # Evaluation phase
                     lora_model.eval()
@@ -323,6 +359,10 @@ if __name__ == "__main__":
                         help='List of LoRA ranks to test')
     parser.add_argument('--batch_size', type=int, default=1, help='Batch size for training')
     parser.add_argument('--num_samples', type=int, default=100, help='Number of samples to generate during evaluation')
+    parser.add_argument('--target_layers', nargs='+', type=int, default=[],
+                        help='List of transformer layer indices to apply LoRA to (default: all layers)')
+    parser.add_argument('--target_module_types', nargs='+', default=['c_attn'],
+                        help="List of module types to apply LoRA to (e.g., 'c_attn')")
     args = parser.parse_args()
 
     if args.analyze:
@@ -334,5 +374,7 @@ if __name__ == "__main__":
             epochs_list=args.epochs,
             lora_ranks=args.lora_ranks,
             batch_size=args.batch_size,
-            num_samples=args.num_samples
+            num_samples=args.num_samples,
+            target_layers=args.target_layers,
+            target_module_types=args.target_module_types
         )
