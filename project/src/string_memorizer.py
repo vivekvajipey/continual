@@ -203,17 +203,22 @@ def run_experiments(model_sizes, string_lengths, epochs_list, lora_ranks, batch_
                             # Evaluation during training
                             lora_model.eval()
                             with torch.no_grad():
-                                # Generate output for the training input
-                                generated_ids = lora_model.generate(
-                                    input_ids=input_ids[:, :1],
-                                    max_new_tokens=token_length - 1,
-                                    attention_mask=inputs['attention_mask'][:, :1],
-                                    do_sample=False,  # Deterministic generation
-                                )
-                                generated_text = tokenizer.decode(generated_ids[0], skip_special_tokens=True).strip()
-                                # Calculate exact match accuracy
-                                is_exact_match = int(generated_text == random_string)
-                                logging.info(f"      Training Accuracy: {is_exact_match * 100:.2f}%")
+                                exact_match_count = 0
+                                for _ in range(10):  # Estimate using 10 data points
+                                    generated_ids = lora_model.generate(
+                                        input_ids=input_ids[:, :1],
+                                        max_new_tokens=token_length - 1,
+                                        attention_mask=inputs['attention_mask'][:, :1],
+                                        do_sample=True,          # Enable stochastic sampling
+                                        top_k=50,
+                                        temperature=1.0
+                                    )
+                                    generated_text = tokenizer.decode(generated_ids[0], skip_special_tokens=True).strip()
+                                    if generated_text == random_string:
+                                        exact_match_count += 1
+                                # Calculate approximate training accuracy
+                                training_accuracy = (exact_match_count / 10) * 100
+                                logging.info(f"      Training Accuracy: {training_accuracy:.2f}%")
                             lora_model.train()
 
                     # Evaluation phase
