@@ -6,8 +6,21 @@ This script can perform the following:
 2. Analyze the results from a previous run and generate plots.
 
 Usage:
-- To run experiments:
-    python string_memorizer.py --run_experiments
+- To run experiments with default settings:
+    python string_memorizer.py
+- To run experiments with custom settings:
+    python string_memorizer.py [options]
+
+  Options:
+    --models               List of GPT-2 models to test (default: ['gpt2', 'gpt2-medium', 'gpt2-large', 'gpt2-xl'])
+    --string_lengths       List of string lengths to test (default: [10, 20, 30])
+    --epochs               List of epoch counts to test (default: [1000])
+    --lora_ranks           List of LoRA ranks to test (default: [1, 2, 4, 8, 16, 32])
+    --batch_size           Batch size for training (default: 1)
+    --num_samples          Number of samples to generate during evaluation (default: 100)
+    --target_layers        List of transformer layer indices to apply LoRA to (default: all layers)
+    --target_module_types  List of module types to apply LoRA to (choices: 'attn.c_attn', 'attn.c_proj', 'mlp.c_fc', 'mlp.c_proj')
+
 - To analyze results:
     python string_memorizer.py --analyze
 """
@@ -27,7 +40,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import torch.utils.data as data
 import numpy as np
-import re  # Import for regular expressions
 
 # Configure logging to write outputs to a file
 logging.basicConfig(
@@ -79,7 +91,7 @@ def run_experiments(model_sizes, string_lengths, epochs_list, lora_ranks, batch_
         batch_size (int): Batch size for training.
         num_samples (int): Number of samples to generate during evaluation.
         target_layers (list): List of transformer layer indices to apply LoRA to.
-        target_module_types (list): List of module types (e.g., ['c_attn']) to apply LoRA to.
+        target_module_types (list): List of nested module paths (e.g., ['attn', 'c_attn']) to apply LoRA to.
     """
     # CSV file to store the results
     csv_file = 'results.csv'
@@ -147,11 +159,15 @@ def run_experiments(model_sizes, string_lengths, epochs_list, lora_ranks, batch_
                     else:
                         target_layers_indices = target_layers
 
-                    # Construct target_modules based on specified layers and module types
+                    # Construct target_modules based on specified layers and module paths
                     target_modules = []
                     for layer_idx in target_layers_indices:
-                        for module_type in target_module_types:
-                            module_pattern = f"transformer.h.{layer_idx}.*{module_type}.*"
+                        for module_path in target_module_types:
+                            # module_path is a list of module names
+                            if isinstance(module_path, list):
+                                module_pattern = f"transformer.h.{layer_idx}." + ".".join(module_path)
+                            else:
+                                module_pattern = f"transformer.h.{layer_idx}.{module_path}"
                             target_modules.append(module_pattern)
 
                     logging.info(f"      Applying LoRA to modules: {target_modules}")
@@ -361,9 +377,17 @@ if __name__ == "__main__":
     parser.add_argument('--num_samples', type=int, default=100, help='Number of samples to generate during evaluation')
     parser.add_argument('--target_layers', nargs='+', type=int, default=[],
                         help='List of transformer layer indices to apply LoRA to (default: all layers)')
-    parser.add_argument('--target_module_types', nargs='+', default=['c_attn'],
-                        help="List of module types to apply LoRA to (e.g., 'c_attn')")
+    parser.add_argument('--target_module_types', nargs='+', default=['attn.c_attn'],
+                        choices=['attn.c_attn', 'attn.c_proj', 'mlp.c_fc', 'mlp.c_proj'],
+                        help="List of module types to apply LoRA to (e.g., 'attn.c_attn')")
     args = parser.parse_args()
+
+    # Parse nested module paths
+    if args.target_module_types:
+        # Each module type is a dot-separated string; split into a list
+        target_module_types = [module_path.strip().split('.') for module_path in args.target_module_types]
+    else:
+        target_module_types = [['attn', 'c_attn']]  # Default to 'attn.c_attn'
 
     if args.analyze:
         analyze_results()
@@ -376,5 +400,5 @@ if __name__ == "__main__":
             batch_size=args.batch_size,
             num_samples=args.num_samples,
             target_layers=args.target_layers,
-            target_module_types=args.target_module_types
+            target_module_types=target_module_types
         )
