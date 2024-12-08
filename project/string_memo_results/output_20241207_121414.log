@@ -1,0 +1,68 @@
+
+Testing GPT-2 Model Size: gpt2
+
+  Testing LoRA Rank: 1
+
+  Testing Module Type: attn.c_attn
+
+    Testing Layer Index: 0
+          Applying LoRA to modules: ['transformer.h.0.attn.c_attn']
+
+      Testing String Length: 5
+        Random String: Gi\C9
+          Batch 1/10000, Loss: 7.2252, Training Accuracy: 0.00%, Sample Output: Gi\n\nC
+          Batch 1000/10000, Loss: 0.0020, Training Accuracy: 99.00%, Sample Output: Gi\C9
+          Achieved 98% training accuracy at batch 1000
+          Success rate: 100.00%
+          Sampled outputs (first 10 samples): Gi\C9 | Gi\C9 | Gi\C9 | Gi\C9 | Gi\C9 | Gi\C9 | Gi\C9 | Gi\C9 | Gi\C9 | Gi\C9
+
+      Testing String Length: 10
+        Random String: :u7==//q::
+          Batch 1/10000, Loss: 8.3046, Training Accuracy: 0.00%, Sample Output: :\n\nI was so stoked
+          Batch 1000/10000, Loss: 0.0015, Training Accuracy: 100.00%, Sample Output: :u7==//q::
+          Achieved 98% training accuracy at batch 1000
+          Success rate: 98.00%
+          Sampled outputs (first 10 samples): :u7==//q:: | :u7==//q:: | :u7==//q:: | :u7==//q:: | :u7==//q:: | :u7==//q:: | :u7==//q:: | :u7==//q:: | :u7==//q:: | :u7==//q::
+
+      Testing String Length: 15
+        Random String: 4Q9TRq{8>FneF\~
+          Batch 1/10000, Loss: 6.6437, Training Accuracy: 0.00%, Sample Output: 45 2,985 2,739 4,868
+          Batch 1000/10000, Loss: 0.0023, Training Accuracy: 98.00%, Sample Output: 4Q9TRq{8>FneF\~
+          Achieved 98% training accuracy at batch 1000
+          Success rate: 96.00%
+          Sampled outputs (first 10 samples): 4Q9TRq{8>FneF\~ | 4Q9TRq{8>FneF\~ | 4Q9TRq{8>FneF\~ | 4Q9TRq{8>FneF\~ | 4Q9TRq{8>FneF\~ | 4Q9TRq{8>FneF\~ | 4Q9TRq{8>FneF\~ | 4Q9TRq{8>FneF\~ | 4Q9TRq{8>FneF\~ | 4Q9TRq{8>FneF\~
+
+      Testing String Length: 20
+        Random String: 7~y<QY73+c%]mBtxj{\0
+          Batch 1/10000, Loss: 7.0924, Training Accuracy: 0.00%, Sample Output: 7T_StartMenu\n\nName: X2K1\n\nFormat
+          Batch 1000/10000, Loss: 0.0038, Training Accuracy: 95.00%, Sample Output: 7~y<QY73+c%]mBtxj{\0
+          Batch 2000/10000, Loss: 0.0013, Training Accuracy: 100.00%, Sample Output: 7~y<QY73+c%]mBtxj{\0
+          Achieved 98% training accuracy at batch 2000
+          Success rate: 99.00%
+          Sampled outputs (first 10 samples): 7~y<QY73+c%]mBtxj{\0 | 7~y<QY73+c%]mBtxj{\0 | 7~y<QY73+c%]mBtxj{\0 | 7~y<QY73+c%]mBtxj{\0 | 7~y<QY73+c%]mBtxj{\0 | 7~y<QY73+c%]mBtxj{\0 | 7~y<QY73+c%]mBtxj{\0 | 7~y<QY73+c%]mBtxj{\0 | 7~y<QY73+c%]mBtxj{\0 | 7~y<QY73+c%]mBtxj{\0
+
+      Testing String Length: 25
+        Random String: -WjEPH\PfhmOov9@+C],l!k_8
+          Batch 1/10000, Loss: 9.2174, Training Accuracy: 0.00%, Sample Output: -~<Next<diff(nValue]););\n\nCode is concise\n\nTrans_
+          Batch 1000/10000, Loss: 0.0374, Training Accuracy: 55.00%, Sample Output: -WjEPH\PfhmOov9@+C],l!k_8
+          Batch 2000/10000, Loss: 0.0061, Training Accuracy: 87.00%, Sample Output: -WjEPH\PfhmOov9@+C],l!k_8
+          Batch 3000/10000, Loss: 0.0026, Training Accuracy: 94.00%, Sample Output: -WjEPH\PfhmOov9@+C],l!k_8
+          Batch 4000/10000, Loss: 0.0014, Training Accuracy: 98.00%, Sample Output: -WjEPH\PfhmOov9@+C],l!k_8
+          Achieved 98% training accuracy at batch 4000
+          Success rate: 98.00%
+          Sampled outputs (first 10 samples): -WjEPH\PfhmOov9@+C],l!k_8 | -WjEPH\PfhmOov9@+C],l!k_8 | -WjEPH\PfhmOov9@+C],l!k_8 | -WjEPH\PfhmOov9@+C],l!k_8 | -WjEPH\PfhmOov9@+C],l!k_8 | -WjEPH\PfhmOov9@+C],l!k_8 | -WjEPH\PfhmOov9@+C],l!k_8 | -WjEPH\PfhmOov9@+C],l!k_8 | -WjEPH\PfhmOov9@+C],l!k_8 | -WjEPH\PfhmOov9@+C],l!k_8
+
+      Testing String Length: 30
+        Random String: uX^{Z>NEY;rt0C6@mscf$.TB6=^w02
+          Batch 1/10000, Loss: 7.6447, Training Accuracy: 0.00%, Sample Output: uWY2\")\";\";\";};x8SX\", ?:\"lFft\":[\"
+          Batch 1000/10000, Loss: 0.0048, Training Accuracy: 94.00%, Sample Output: uWu90 ; i6A0O!&MqZ6&cQQ
+          Batch 2000/10000, Loss: 0.0018, Training Accuracy: 96.00%, Sample Output: uX^{Z>NEY;rt0C6@mscf$.TB6=^w02
+          Batch 3000/10000, Loss: 0.0009, Training Accuracy: 100.00%, Sample Output: uX^{Z>NEY;rt0C6@mscf$.TB6=^w02
+          Achieved 98% training accuracy at batch 3000
+          Success rate: 99.00%
+          Sampled outputs (first 10 samples): uX^{Z>NEY;rt0C6@mscf$.TB6=^w02 | uX^{Z>NEY;rt0C6@mscf$.TB6=^w02 | uX^{Z>NEY;rt0C6@mscf$.TB6=^w02 | uX^{Z>NEY;rt0C6@mscf$.TB6=^w02 | uX^{Z>NEY;rt0C6@mscf$.TB6=^w02 | uX^{Z>NEY;rt0C6@mscf$.TB6=^w02 | uX^{Z>NEY;rt0C6@mscf$.TB6=^w02 | uX^{Z>NEY;rt0C6@mscf$.TB6=^w02 | uX^{Z>NEY;rt0C6@mscf$.TB6=^w02 | uX^{Z>NEY;rt0C6@mscf$.TB6=^w02
+
+      Testing String Length: 35
+        Random String: {^4iffQQs&rOkvZ2k6.)6I{/gJpl>r%brf0
+          Batch 1/10000, Loss: 6.6927, Training Accuracy: 0.00%, Sample Output: {XF:<Cg>Fl,\n\nI:\., \"The \' is the\n\n\nI know how a thing
+          Batch 1000/10000, Loss: 0.0256, Training Accuracy: 46.00%, Sample Output: {^4iffQQs&rOkvZ2k6.)2jp;:it:.:v::::
