@@ -1,0 +1,13 @@
+Using device: mps
+First half:
+Cheese is a type of dairy product produced in a range of flavors, textures, and forms by coagulation of the milk protein casein. It comprises proteins and fat from milk (usually the milk of cows, buffalo, goats or sheep). During production, milk is usually acidified and either
+
+Second half:
+ the enzymes of rennet or bacterial enzymes with similar activity are added to cause the casein to coagulate. The solid curds are then separated from the liquid whey and pressed into finished cheese. Some cheeses have aromatic molds on the rind, the outer layer, or throughout.
+
+Input shape: torch.Size([1, 72]), Labels shape: torch.Size([1, 72])
+Input text: <s><s><s>  the enzymes of rennet or bacterial enzymes with similar activity are added to cause the casein to coagulate. The solid curds are then separated from the liquid whey and pressed into finished cheese. Some cheeses have aromatic molds on the rind, the outer layer, or throughout
+Labels text (excluding padding): <s>  the enzymes of rennet or bacterial enzymes with similar activity are added to cause the casein to coagulate. The solid curds are then separated from the liquid whey and pressed into finished cheese. Some cheeses have aromatic molds on the rind, the outer layer, or throughout
+Epoch 5/50, Loss: 1.7485
+Error during training: 'target_ids'
+Error in main: 'target_ids'
