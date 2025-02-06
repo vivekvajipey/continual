@@ -25,15 +25,15 @@ else:
 logging.info(f"Using device: {device}")
 
 def prepare_document():
-    """Prepare the example document split into first and second half."""
+    """Prepare the example document."""
     document = """Cheese is a type of dairy product produced in a range of flavors, textures, and forms by coagulation of the milk protein casein. It comprises proteins and fat from milk (usually the milk of cows, buffalo, goats or sheep). During production, milk is usually acidified and either the enzymes of rennet or bacterial enzymes with similar activity are added to cause the casein to coagulate. The solid curds are then separated from the liquid whey and pressed into finished cheese. Some cheeses have aromatic molds on the rind, the outer layer, or throughout."""
     
-    # Split document in half (rough approximation)
-    split_idx = len(document) // 2
-    first_half = document[:split_idx]
-    second_half = document[split_idx:]
+    # Use the entire document as both input and target
+    input_text = document
+    target_text = document
     
-    return first_half, second_half
+    return input_text, target_text
+
 
 def setup_model_and_lora():
     """Initialize model and configure LoRA."""
@@ -72,43 +72,41 @@ def setup_model_and_lora():
     
     return model, tokenizer
 
-def prepare_inputs(tokenizer, second_half):
+def prepare_inputs(tokenizer, text):
     """
     Prepare input and target tensors for training.
-    Both input_ids and labels will be same length, with labels shifted one position
+    Input is the entire text except the last token.
+    Labels are the entire text except the first token.
     """
-    # Tokenize second half
-    second_half_tokens = tokenizer(second_half, return_tensors="pt", padding=True, truncation=True)
-    second_half_ids = second_half_tokens["input_ids"]
+    # Tokenize the text
+    tokens = tokenizer(text, return_tensors="pt", padding=True, truncation=True)
+    input_ids_full = tokens["input_ids"].to(device)          # Shape: [1, 138]
+    attention_mask_full = tokens["attention_mask"].to(device)  # Shape: [1, 138]
     
-    # Create input sequence: start token + all but last token of second half
-    start_token = tokenizer("<s>", return_tensors="pt")["input_ids"]
-    input_sequence = torch.cat([start_token, second_half_ids[:, :-1]], dim=1).to(device)
+    # Shift input_ids and labels
+    input_ids = input_ids_full[:, :-1]  # Shape: [1, 137]
+    labels = input_ids_full[:, 1:].clone()  # Shape: [1, 137]
     
-    # Create labels: pad token + second half tokens (except last)
-    # -100 is the ignore_index for loss calculation
-    labels = torch.cat([torch.full_like(start_token, -100), second_half_ids[:, :-1]], dim=1).to(device)
-    
-    # Create attention mask
-    attention_mask = torch.ones_like(input_sequence).to(device)
+    # Replace pad token id's in labels by -100 so they are ignored by the loss
+    labels[labels == tokenizer.pad_token_id] = -100
     
     # Log shapes and content for debugging
-    logging.info(f"Input shape: {input_sequence.shape}, Labels shape: {labels.shape}")
-    logging.info(f"Input text: {tokenizer.decode(input_sequence[0])}")
-    logging.info(f"Labels text (excluding padding): {tokenizer.decode(second_half_ids[0, :-1])}")
+    logging.info(f"Input shape: {input_ids.shape}, Labels shape: {labels.shape}")
+    logging.info(f"Input text: {tokenizer.decode(input_ids[0], skip_special_tokens=True)}")
+    logging.info(f"Labels text (excluding padding): {tokenizer.decode(labels[0], skip_special_tokens=True)}")
     
     return {
-        "input_ids": input_sequence,
-        "attention_mask": attention_mask,
+        "input_ids": input_ids,
+        "attention_mask": attention_mask_full[:, :-1],
         "labels": labels
     }
 
-def train_lora(model, tokenizer, second_half, num_epochs=50):
-    """Train LoRA to generate second half without first half context."""
+def train_lora(model, tokenizer, text, num_epochs=50, early_stopping_threshold=0.99):
+    """Train LoRA to memorize and reproduce the input text with early stopping."""
     model.train()
     
     # Prepare inputs and targets
-    tensors = prepare_inputs(tokenizer, second_half)
+    tensors = prepare_inputs(tokenizer, text)
     
     # Initialize optimizer
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
@@ -138,67 +136,101 @@ def train_lora(model, tokenizer, second_half, num_epochs=50):
                 # Generate sample during training to monitor progress
                 with torch.no_grad():
                     generated = model.generate(
-                        input_ids=tensors["input_ids"][:, :1],  # Only use start token for generation
-                        max_new_tokens=tensors["labels"].size(1),
-                        temperature=0.7,
+                        input_ids=tensors["input_ids"],  # Input sequence excluding last token
+                        attention_mask=tensors["attention_mask"],
+                        max_new_tokens=len(tensors["labels"][0]),  # Generate tokens equal to labels length
+                        temperature=1.0,  # Greedy decoding
                         pad_token_id=tokenizer.pad_token_id,
                         eos_token_id=tokenizer.eos_token_id,
-                        do_sample=True,
-                        top_k=50
+                        do_sample=False  # Deterministic generation
                     )
-                    generated_text = tokenizer.decode(generated[0], skip_special_tokens=True)
-                    logging.info(f"Sample generation:\n{generated_text}\n")
-                    logging.info(f"Target text:\n{second_half}\n")
+                    # Concatenate input and generated tokens
+                    full_generated_ids = torch.cat([tensors["input_ids"][0], generated[0]], dim=0)
+                    full_generated_text = tokenizer.decode(full_generated_ids, skip_special_tokens=True)
+                    logging.info(f"Sample generation:\n{full_generated_text}\n")
+                    logging.info(f"Target text:\n{text}\n")
+                    
+                    # Check if the generated text matches the target text
+                    accuracy = full_generated_text == text
+                    if accuracy:
+                        logging.info(f"Exact match achieved at epoch {epoch + 1}. Stopping training.")
+                        break
     
     except Exception as e:
         logging.error(f"Error during training: {str(e)}")
         raise e
 
-def evaluate_generation(model, tokenizer, first_half, second_half, num_samples=5):
-    """Evaluate the trained model's ability to generate the second half."""
+def evaluate_generation(model, tokenizer, input_text, target_text, num_samples=5):
+    """Evaluate the trained model's ability to generate the target text."""
     model.eval()
     
     logging.info("\nEvaluation:")
-    logging.info(f"Original second half:\n{second_half}\n")
+    logging.info(f"Target text:\n{target_text}\n")
     
-    # Prepare input tokens
-    start_tokens = tokenizer("<s>", return_tensors="pt").to(device)
-    target_length = len(tokenizer(second_half)["input_ids"][0])
+    # Prepare input tokens (entire input sequence excluding last token)
+    tensors = prepare_inputs(tokenizer, input_text)
+    input_ids = tensors["input_ids"].to(device)            # Shape: [1, 137]
+    attention_mask = tensors["attention_mask"].to(device)  # Shape: [1, 137]
+    
+    target_length = tensors["labels"].shape[1]  # Number of tokens to generate (137)
     
     try:
         with torch.no_grad():
             for i in range(num_samples):
                 generated = model.generate(
-                    input_ids=start_tokens["input_ids"],
-                    max_new_tokens=target_length,
-                    temperature=0.7,
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    max_new_tokens=target_length,  # Generate tokens equal to labels length
+                    temperature=1.0,  # Greedy decoding
                     pad_token_id=tokenizer.pad_token_id,
                     eos_token_id=tokenizer.eos_token_id,
-                    do_sample=True,
-                    top_k=50
+                    do_sample=False  # Deterministic generation
                 )
-                generated_text = tokenizer.decode(generated[0], skip_special_tokens=True)
+                # Concatenate input and generated tokens
+                full_generated_ids = torch.cat([input_ids[0], generated[0]], dim=0)
+                generated_text = tokenizer.decode(full_generated_ids, skip_special_tokens=True)
                 logging.info(f"Generated sample {i+1}:\n{generated_text}\n")
     
     except Exception as e:
         logging.error(f"Error during evaluation: {str(e)}")
         raise e
 
+def save_model(model, tokenizer, save_dir):
+    """Save the trained model and tokenizer."""
+    os.makedirs(save_dir, exist_ok=True)
+    model.save_pretrained(save_dir)
+    tokenizer.save_pretrained(save_dir)
+    logging.info(f"Model and tokenizer saved to {save_dir}")
+
 def main():
     try:
+        logging.info("=== Starting the Fine-Tuning Process ===")
+        
         # 1. Prepare document
-        first_half, second_half = prepare_document()
-        logging.info(f"First half:\n{first_half}\n")
-        logging.info(f"Second half:\n{second_half}\n")
+        input_text, target_text = prepare_document()
+        logging.info("=== Document Prepared ===")
+        logging.info(f"Input text:\n{input_text}\n")
+        logging.info(f"Target text:\n{target_text}\n")
         
         # 2. Setup model and LoRA
         model, tokenizer = setup_model_and_lora()
+        logging.info("=== Model and LoRA Setup Complete ===")
         
         # 3. Train LoRA
-        train_lora(model, tokenizer, second_half)
+        logging.info("=== Starting Training ===")
+        train_lora(model, tokenizer, input_text)
+        logging.info("=== Training Completed ===")
         
         # 4. Evaluate results
-        evaluate_generation(model, tokenizer, first_half, second_half)
+        logging.info("=== Starting Evaluation ===")
+        evaluate_generation(model, tokenizer, input_text, target_text)
+        logging.info("=== Evaluation Completed ===")
+        
+        # 5. Save the trained model
+        logging.info("=== Saving the Trained Model ===")
+        save_dir = os.path.join(OUTPUT_DIR, f"trained_model_{timestamp}")
+        save_model(model, tokenizer, save_dir)
+        logging.info("=== Model Saved Successfully ===")
     
     except Exception as e:
         logging.error(f"Error in main: {str(e)}")
