@@ -1,0 +1,99 @@
+Using device: cuda
+First half:
+Cheese is a type of dairy product produced in a range of flavors, textures, and forms by coagulation of the milk protein casein. It comprises proteins and fat from milk (usually the milk of cows, buffalo, goats or sheep). During production, milk is usually acidified and either
+
+Second half:
+ the enzymes of rennet or bacterial enzymes with similar activity are added to cause the casein to coagulate. The solid curds are then separated from the liquid whey and pressed into finished cheese. Some cheeses have aromatic molds on the rind, the outer layer, or throughout.
+
+We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
+Input shape: torch.Size([1, 72]), Labels shape: torch.Size([1, 72])
+Input text: <s><s><s>  the enzymes of rennet or bacterial enzymes with similar activity are added to cause the casein to coagulate. The solid curds are then separated from the liquid whey and pressed into finished cheese. Some cheeses have aromatic molds on the rind, the outer layer, or throughout
+Labels text (excluding padding): <s>  the enzymes of rennet or bacterial enzymes with similar activity are added to cause the casein to coagulate. The solid curds are then separated from the liquid whey and pressed into finished cheese. Some cheeses have aromatic molds on the rind, the outer layer, or throughout
+Epoch 5/50, Loss: 1.7535
+Sample generation:
+← The First Time I Was Hit By A Car
+I was in a car accident. I was in a car accident. I was in a car accident. I was in a car accident. I was in a car accident. I was in a car accident. I was in a car accident. I was in a car accident. I was in a
+
+Target text:
+ the enzymes of rennet or bacterial enzymes with similar activity are added to cause the casein to coagulate. The solid curds are then separated from the liquid whey and pressed into finished cheese. Some cheeses have aromatic molds on the rind, the outer layer, or throughout.
+
+Epoch 10/50, Loss: 1.1549
+Sample generation:
+
+#include "common.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#include <time.h>
+#include <unistd.h>
+#include <sys
+
+Target text:
+ the enzymes of rennet or bacterial enzymes with similar activity are added to cause the casein to coagulate. The solid curds are then separated from the liquid whey and pressed into finished cheese. Some cheeses have aromatic molds on the rind, the outer layer, or throughout.
+
+Epoch 15/50, Loss: 0.5582
+Sample generation:
+
+
+Target text:
+ the enzymes of rennet or bacterial enzymes with similar activity are added to cause the casein to coagulate. The solid curds are then separated from the liquid whey and pressed into finished cheese. Some cheeses have aromatic molds on the rind, the outer layer, or throughout.
+
+Epoch 20/50, Loss: 0.2875
+Sample generation:
+
+
+Target text:
+ the enzymes of rennet or bacterial enzymes with similar activity are added to cause the casein to coagulate. The solid curds are then separated from the liquid whey and pressed into finished cheese. Some cheeses have aromatic molds on the rind, the outer layer, or throughout.
+
+Epoch 25/50, Loss: 0.1897
+Sample generation:
+1.1.4.2.1.2.1.1.1.2.2.1.2.1.1.1.2.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1
+
+Target text:
+ the enzymes of rennet or bacterial enzymes with similar activity are added to cause the casein to coagulate. The solid curds are then separated from the liquid whey and pressed into finished cheese. Some cheeses have aromatic molds on the rind, the outer layer, or throughout.
+
+Epoch 30/50, Loss: 0.0862
+Sample generation:
+9 out of 10 based on 460 ratings. 1,692 user reviews.
+www›Search›96 mazda miata wiring harnessFind great deals on eBay for 96 mazda miata wiring harness. Shop with confidence.
+www›Search
+
+Target text:
+ the enzymes of rennet or bacterial enzymes with similar activity are added to cause the casein to coagulate. The solid curds are then separated from the liquid whey and pressed into finished cheese. Some cheeses have aromatic molds on the rind, the outer layer, or throughout.
+
+Epoch 35/50, Loss: 0.0332
+Sample generation:
+ the enzymes BstYI and KpnI were used to add restriction sites to the pET-22b (+) plasmid. The resulting plasmid, pET-22b (+) -hCYP19A1, was then transformed into E. coli strain BL21 (
+
+Target text:
+ the enzymes of rennet or bacterial enzymes with similar activity are added to cause the casein to coagulate. The solid curds are then separated from the liquid whey and pressed into finished cheese. Some cheeses have aromatic molds on the rind, the outer layer, or throughout.
+
+Epoch 40/50, Loss: 0.0231
+Sample generation:
+ the enzymes Pausus and Tyrannosaurus or the enzymes Bacterial protease or Fungal protease or Plant protease or Aspergillus or Archeoglobus or Fusarium or Geobacillus or Thermus or other acid or base or proteolytic enzym
+
+Target text:
+ the enzymes of rennet or bacterial enzymes with similar activity are added to cause the casein to coagulate. The solid curds are then separated from the liquid whey and pressed into finished cheese. Some cheeses have aromatic molds on the rind, the outer layer, or throughout.
+
+Epoch 45/50, Loss: 0.0238
+Sample generation:
+ the enzymes of rennet or bacterial enzymes with similar activity are added to cause the casein to coagulate. The solid curds are then separated from the liquid whey and pressed into finished cheese. Some cheeses have aromatic molds on the rind, the outer layer, or throughout the cheese
+
+Target text:
+ the enzymes of rennet or bacterial enzymes with similar activity are added to cause the casein to coagulate. The solid curds are then separated from the liquid whey and pressed into finished cheese. Some cheeses have aromatic molds on the rind, the outer layer, or throughout.
+
+Epoch 50/50, Loss: 0.0229
+Sample generation:
+ the enzymes of rennet or bacterial enzymes with similar activity are added to cause the casein to coagulate. The solid curds are then separated from the liquid whey and pressed into finished cheese. Some cheeses have aromatic molds on the rind, the outer layer, or throughout the che
+
+Target text:
+ the enzymes of rennet or bacterial enzymes with similar activity are added to cause the casein to coagulate. The solid curds are then separated from the liquid whey and pressed into finished cheese. Some cheeses have aromatic molds on the rind, the outer layer, or throughout.
+
+
+Evaluation:
+Original second half:
+ the enzymes of rennet or bacterial enzymes with similar activity are added to cause the casein to coagulate. The solid curds are then separated from the liquid whey and pressed into finished cheese. Some cheeses have aromatic molds on the rind, the outer layer, or throughout.
+
+Error in main: object of type 'int' has no len()
