@@ -24,7 +24,7 @@ class CompressionHead(nn.Module):
     
     The target linear layer (e.g. a query projection) has weight shape (out_features, in_features).
     """
-    def __init__(self, hidden_dim, target_in_features, target_out_features, rank=4):
+    def __init__(self, hidden_dim, target_in_features, target_out_features, rank=8):
         super().__init__()
         self.rank = rank
         self.linear1 = nn.Linear(hidden_dim, rank)
@@ -76,10 +76,41 @@ def lora_forward(input):
     if hasattr(target_layer, "lora_delta") and target_layer.lora_delta is not None:
         weight = weight + target_layer.lora_delta
     # Use a simple linear transformation (assumes no special dropout or other behavior)
-    return F.linear(input, weight, target_layer.bias)
+    return F.linear(input, weight, target_layer.bias) # look into llama's forward pass?
 
 # Override the forward of the target layer
 target_layer.forward = lora_forward
+
+
+def decode_first_token(updated_logits, base_logits, tokenizer=tokenizer):
+    """
+    Decodes the first token prediction from both the updated logits and the baseline logits.
+    
+    Args:
+        updated_logits (torch.Tensor): Logits from the model with the injected LoRA update.
+                                       Expected shape: (batch_size, seq_length, vocab_size).
+        base_logits (torch.Tensor): Logits from the baseline full-context model.
+                                    Expected shape: (batch_size, seq_length, vocab_size).
+        tokenizer: The tokenizer used for decoding token IDs into text.
+    
+    Returns:
+        dict: A dictionary containing the decoded first token from both the updated and the baseline logits.
+              For example: {'updated': 'The', 'base': 'A'}.
+    """
+    # For debugging, we assume batch_size == 1 and decode the first token in the sequence.
+    # Compute the token id with the highest logit for the first token position.
+    updated_first_token_id = torch.argmax(updated_logits[0, 0, :]).item()
+    base_first_token_id = torch.argmax(base_logits[0, 0, :]).item()
+
+    # Decode the token ids into strings.
+    updated_decoded = tokenizer.decode([updated_first_token_id])
+    base_decoded = tokenizer.decode([base_first_token_id])
+
+    # Print the decoded tokens for debugging purposes.
+    print("Decoded first token (updated logits):", updated_decoded)
+    print("Decoded first token (baseline logits):", base_decoded)
+
+    return {"updated": updated_decoded, "base": base_decoded}
 
 # ============
 # Initialize Compression Head and Optimizer
@@ -146,7 +177,7 @@ for epoch in range(NUM_EPOCHS):
             outputs_first = model(first_half, output_hidden_states=True)
         # Get the last token’s hidden state from the final layer; shape: (1, hidden_dim)
         last_hidden_state = outputs_first.hidden_states[-1][:, -1, :]
-        
+
         # ------
         # (B) Compute the LoRA weight delta from the compression head.
         # ------
@@ -175,6 +206,10 @@ for epoch in range(NUM_EPOCHS):
         # (Assuming the predictions for the second half start at index "first_half_length")
         logits_full_second = logits_full[:, -second_half_len:, :]
         
+        # Decode the first token predictions for debugging
+
+        decoded_tokens = decode_first_token(logits_mod, logits_full_second, tokenizer)
+
         # ------
         # (E) Compute the loss.
         # We use KL divergence between the token distributions produced with and without the delta.
