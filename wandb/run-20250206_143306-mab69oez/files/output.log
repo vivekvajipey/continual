@@ -1,0 +1,15 @@
+Map: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 36718/36718 [00:08<00:00, 4409.25 examples/s]
+Filter: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 36718/36718 [00:02<00:00, 16836.82 examples/s]
+No checkpoint found, starting from scratch.
+Starting training loop...
+Epoch 1:   0%|                                                                                                                                           | 0/3552 [00:00<?, ?it/s]
+Traceback (most recent call last):
+  File "/sailhome/tadimeti/research/continual/project/hypernetwork-pipeline.py", line 227, in <module>
+    delta = compression_head(last_hidden_state)  # shape: (target_out_features, target_in_features)
+  File "/scr/tadimeti/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/scr/tadimeti/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/sailhome/tadimeti/research/continual/project/hypernetwork-pipeline.py", line 59, in forward
+    x = torch.nn.gelu(x)
+AttributeError: module 'torch.nn' has no attribute 'gelu'

@@ -1,0 +1,15 @@
+{"time":"2025-02-06T14:34:00.835136535-08:00","level":"INFO","msg":"stream: starting","core version":"0.19.6","symlink path":"/sailhome/tadimeti/research/continual/wandb/run-20250206_143400-lvj4b1od/logs/debug-core.log"}
+{"time":"2025-02-06T14:34:00.952534633-08:00","level":"INFO","msg":"created new stream","id":"lvj4b1od"}
+{"time":"2025-02-06T14:34:00.952567823-08:00","level":"INFO","msg":"stream: started","id":"lvj4b1od"}
+{"time":"2025-02-06T14:34:00.952585533-08:00","level":"INFO","msg":"writer: Do: started","stream_id":"lvj4b1od"}
+{"time":"2025-02-06T14:34:00.952599413-08:00","level":"INFO","msg":"sender: started","stream_id":"lvj4b1od"}
+{"time":"2025-02-06T14:34:00.952680232-08:00","level":"INFO","msg":"handler: started","stream_id":"lvj4b1od"}
+{"time":"2025-02-06T14:34:01.132038038-08:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-02-06T14:38:53.68676869-08:00","level":"INFO","msg":"stream: closing","id":"lvj4b1od"}
+{"time":"2025-02-06T14:38:53.686872679-08:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-02-06T14:38:53.68800399-08:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-02-06T14:38:54.105380122-08:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-02-06T14:38:54.215841042-08:00","level":"INFO","msg":"handler: closed","stream_id":"lvj4b1od"}
+{"time":"2025-02-06T14:38:54.215880032-08:00","level":"INFO","msg":"writer: Close: closed","stream_id":"lvj4b1od"}
+{"time":"2025-02-06T14:38:54.215909252-08:00","level":"INFO","msg":"sender: closed","stream_id":"lvj4b1od"}
+{"time":"2025-02-06T14:38:54.216748175-08:00","level":"INFO","msg":"stream: closed","id":"lvj4b1od"}

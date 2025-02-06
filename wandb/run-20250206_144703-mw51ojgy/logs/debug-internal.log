@@ -1,0 +1,7 @@
+{"time":"2025-02-06T14:47:03.371502403-08:00","level":"INFO","msg":"stream: starting","core version":"0.19.6","symlink path":"/sailhome/tadimeti/research/continual/wandb/run-20250206_144703-mw51ojgy/logs/debug-core.log"}
+{"time":"2025-02-06T14:47:03.489222976-08:00","level":"INFO","msg":"created new stream","id":"mw51ojgy"}
+{"time":"2025-02-06T14:47:03.489262695-08:00","level":"INFO","msg":"stream: started","id":"mw51ojgy"}
+{"time":"2025-02-06T14:47:03.489330195-08:00","level":"INFO","msg":"writer: Do: started","stream_id":"mw51ojgy"}
+{"time":"2025-02-06T14:47:03.489373715-08:00","level":"INFO","msg":"sender: started","stream_id":"mw51ojgy"}
+{"time":"2025-02-06T14:47:03.489337065-08:00","level":"INFO","msg":"handler: started","stream_id":"mw51ojgy"}
+{"time":"2025-02-06T14:47:03.689939302-08:00","level":"INFO","msg":"Starting system monitor"}

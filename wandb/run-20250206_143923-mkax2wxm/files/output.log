@@ -1,0 +1,18 @@
+Map: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 36718/36718 [00:08<00:00, 4394.63 examples/s]
+Filter: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 36718/36718 [00:02<00:00, 16985.14 examples/s]
+Traceback (most recent call last):
+  File "/sailhome/tadimeti/research/continual/project/hypernetwork-pipeline.py", line 218, in <module>
+    checkpoint, ckpt_file = load_latest_checkpoint()
+  File "/sailhome/tadimeti/research/continual/project/hypernetwork-pipeline.py", line 183, in load_latest_checkpoint
+    checkpoint = torch.load(latest_checkpoint_file, map_location=cfg.device)
+  File "/scr/tadimeti/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/serialization.py", line 1462, in load
+    return _load(
+  File "/scr/tadimeti/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/serialization.py", line 1964, in _load
+    result = unpickler.load()
+  File "/scr/tadimeti/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/_weights_only_unpickler.py", line 512, in load
+    self.append(self.persistent_load(pid))
+  File "/scr/tadimeti/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/serialization.py", line 1928, in persistent_load
+    typed_storage = load_tensor(
+  File "/scr/tadimeti/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/serialization.py", line 1888, in load_tensor
+    zip_file.get_storage_from_record(name, numel, torch.UntypedStorage)
+RuntimeError: PytorchStreamReader failed locating file data/3: file not found

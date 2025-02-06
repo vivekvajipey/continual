@@ -1,0 +1,15 @@
+Map: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 36718/36718 [00:08<00:00, 4417.72 examples/s]
+Filter: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 36718/36718 [00:02<00:00, 16826.69 examples/s]
+No checkpoint found, starting from scratch.
+Starting training loop...
+Epoch 1:   7%|████████▉                                                                                                                      | 249/3552 [04:33<1:00:34,  1.10s/it]
+Traceback (most recent call last):
+  File "/sailhome/tadimeti/research/continual/project/hypernetwork-pipeline.py", line 253, in <module>
+    logits_mod = outputs_mod.logits  # shape: (1, second_half_length, vocab_size)
+  File "/sailhome/tadimeti/research/continual/project/hypernetwork-pipeline.py", line 168, in save_checkpoint
+    }
+  File "/scr/tadimeti/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/serialization.py", line 944, in save
+    _save(
+  File "/scr/tadimeti/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/serialization.py", line 1216, in _save
+    zip_file.write_record(name, storage, num_bytes)
+KeyboardInterrupt
