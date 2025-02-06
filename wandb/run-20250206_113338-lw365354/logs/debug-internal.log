@@ -1,0 +1,15 @@
+{"time":"2025-02-06T11:33:38.791284196-08:00","level":"INFO","msg":"stream: starting","core version":"0.19.6","symlink path":"/sailhome/tadimeti/research/continual/wandb/run-20250206_113338-lw365354/logs/debug-core.log"}
+{"time":"2025-02-06T11:33:38.908095131-08:00","level":"INFO","msg":"created new stream","id":"lw365354"}
+{"time":"2025-02-06T11:33:38.90812784-08:00","level":"INFO","msg":"stream: started","id":"lw365354"}
+{"time":"2025-02-06T11:33:38.90815931-08:00","level":"INFO","msg":"writer: Do: started","stream_id":"lw365354"}
+{"time":"2025-02-06T11:33:38.90819418-08:00","level":"INFO","msg":"handler: started","stream_id":"lw365354"}
+{"time":"2025-02-06T11:33:38.90821463-08:00","level":"INFO","msg":"sender: started","stream_id":"lw365354"}
+{"time":"2025-02-06T11:33:39.082632668-08:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-02-06T11:33:58.300735004-08:00","level":"INFO","msg":"stream: closing","id":"lw365354"}
+{"time":"2025-02-06T11:33:58.300782644-08:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-02-06T11:33:58.301862626-08:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-02-06T11:33:58.728842879-08:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-02-06T11:33:58.828268406-08:00","level":"INFO","msg":"handler: closed","stream_id":"lw365354"}
+{"time":"2025-02-06T11:33:58.828302095-08:00","level":"INFO","msg":"sender: closed","stream_id":"lw365354"}
+{"time":"2025-02-06T11:33:58.828296635-08:00","level":"INFO","msg":"writer: Close: closed","stream_id":"lw365354"}
+{"time":"2025-02-06T11:33:58.82904991-08:00","level":"INFO","msg":"stream: closed","id":"lw365354"}

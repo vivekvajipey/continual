@@ -1,0 +1,30 @@
+README.md: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 10.5k/10.5k [00:00<00:00, 29.6MB/s]
+test-00000-of-00001.parquet: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████| 733k/733k [00:00<00:00, 46.5MB/s]
+train-00000-of-00001.parquet: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 6.36M/6.36M [00:00<00:00, 98.1MB/s]
+validation-00000-of-00001.parquet: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████| 657k/657k [00:00<00:00, 63.1MB/s]
+Generating test split: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████| 4358/4358 [00:00<00:00, 307661.36 examples/s]
+Generating train split: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████| 36718/36718 [00:00<00:00, 610429.40 examples/s]
+Generating validation split: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████| 3760/3760 [00:00<00:00, 418373.34 examples/s]
+Map: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 36718/36718 [00:08<00:00, 4517.66 examples/s]
+Filter: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 36718/36718 [00:02<00:00, 16716.11 examples/s]
+Starting training loop...
+Epoch 1:   0%|                                                                                                                                           | 0/3552 [00:00<?, ?it/s]You're using a PreTrainedTokenizerFast tokenizer. Please note that with a fast tokenizer, using the `__call__` method is faster than using a method to encode the text followed by a call to the `pad` method to get a padded encoding.
+Epoch 1:   0%|                                                                                                                                           | 0/3552 [00:00<?, ?it/s]
+Traceback (most recent call last):
+  File "/sailhome/tadimeti/research/continual/project/hypernetwork-pipeline.py", line 396, in <module>
+    for batch in tqdm(dataloader, desc=f"Epoch {epoch+1}"):
+  File "/scr/tadimeti/miniconda3/envs/myenv/lib/python3.10/site-packages/tqdm/std.py", line 1181, in __iter__
+    for obj in iterable:
+  File "/scr/tadimeti/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 708, in __next__
+    data = self._next_data()
+  File "/scr/tadimeti/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 764, in _next_data
+    data = self._dataset_fetcher.fetch(index)  # may raise StopIteration
+  File "/scr/tadimeti/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/utils/data/_utils/fetch.py", line 55, in fetch
+    return self.collate_fn(data)
+  File "/sailhome/tadimeti/research/continual/project/hypernetwork-pipeline.py", line 326, in collate_fn
+    input_ids = tokenizer.pad({"input_ids": input_ids}, return_tensors="pt")["input_ids"]
+  File "/scr/tadimeti/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/tokenization_utils_base.py", line 3346, in pad
+    padding_strategy, _, max_length, _ = self._get_padding_truncation_strategies(
+  File "/scr/tadimeti/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/tokenization_utils_base.py", line 2770, in _get_padding_truncation_strategies
+    raise ValueError(
+ValueError: Asking to pad but the tokenizer does not have a padding token. Please select a token to use as `pad_token` `(tokenizer.pad_token = tokenizer.eos_token e.g.)` or add a new pad token via `tokenizer.add_special_tokens({'pad_token': '[PAD]'})`.

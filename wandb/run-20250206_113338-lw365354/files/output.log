@@ -1,0 +1,26 @@
+Map: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 36718/36718 [00:08<00:00, 4432.75 examples/s]
+Filter: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 36718/36718 [00:02<00:00, 17056.44 examples/s]
+Starting training loop...
+Epoch 1:   0%|                                                                                                                                           | 0/3552 [00:00<?, ?it/s]
+Traceback (most recent call last):
+  File "/sailhome/tadimeti/research/continual/project/hypernetwork-pipeline.py", line 400, in <module>
+    for batch in tqdm(dataloader, desc=f"Epoch {epoch+1}"):
+  File "/scr/tadimeti/miniconda3/envs/myenv/lib/python3.10/site-packages/tqdm/std.py", line 1181, in __iter__
+    for obj in iterable:
+  File "/scr/tadimeti/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 708, in __next__
+    data = self._next_data()
+  File "/scr/tadimeti/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 764, in _next_data
+    data = self._dataset_fetcher.fetch(index)  # may raise StopIteration
+  File "/scr/tadimeti/miniconda3/envs/myenv/lib/python3.10/site-packages/torch/utils/data/_utils/fetch.py", line 55, in fetch
+    return self.collate_fn(data)
+  File "/sailhome/tadimeti/research/continual/project/hypernetwork-pipeline.py", line 325, in collate_fn
+    encodings = tokenizer(texts,
+  File "/scr/tadimeti/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/tokenization_utils_base.py", line 2868, in __call__
+    encodings = self._call_one(text=text, text_pair=text_pair, **all_kwargs)
+  File "/scr/tadimeti/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/tokenization_utils_base.py", line 2956, in _call_one
+    return self.batch_encode_plus(
+  File "/scr/tadimeti/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/tokenization_utils_base.py", line 3149, in batch_encode_plus
+    padding_strategy, truncation_strategy, max_length, kwargs = self._get_padding_truncation_strategies(
+  File "/scr/tadimeti/miniconda3/envs/myenv/lib/python3.10/site-packages/transformers/tokenization_utils_base.py", line 2770, in _get_padding_truncation_strategies
+    raise ValueError(
+ValueError: Asking to pad but the tokenizer does not have a padding token. Please select a token to use as `pad_token` `(tokenizer.pad_token = tokenizer.eos_token e.g.)` or add a new pad token via `tokenizer.add_special_tokens({'pad_token': '[PAD]'})`.
