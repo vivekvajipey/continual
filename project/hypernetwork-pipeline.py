@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()  # Load environment variables from .env
+
 import glob
 import os
 import torch
@@ -24,7 +27,7 @@ config = {
     "eval_interval": 50,  # steps between qualitative evaluations
     "checkpoint_interval": 1000,  # checkpoint every 1000 steps (adjust as needed)
     "wandb_project": "lora-compression-head",
-    "checkpoint_dir": "/scr/benpry/checkpoints",  # local directory to store checkpoints
+    "checkpoint_dir": os.getenv("CHECKPOINT_DIR", "/scr/benpry/checkpoints"),
 }
 
 # Create checkpoint directory if it doesn't exist.
@@ -92,7 +95,10 @@ for param in model.parameters():
 
 # Load WikiText-2 (raw version) using the Hugging Face datasets library.
 dataset = load_dataset(
-    "wikitext", "wikitext-2-raw-v1", split="train", cache_dir="/scr/benpry/hf_cache/hub"
+    "wikitext",
+    "wikitext-2-raw-v1",
+    split="train",
+    cache_dir=os.getenv("HF_CACHE_DIR", "/scr/benpry/hf_cache/hub")
 )
 
 
@@ -129,7 +135,10 @@ dataloader = DataLoader(
 # Load Validation Set
 # ========
 val_dataset = load_dataset(
-    "wikitext", "wikitext-2-raw-v1", split="validation", cache_dir="/scr/benpry/hf_cache/hub"
+    "wikitext",
+    "wikitext-2-raw-v1",
+    split="validation",
+    cache_dir=os.getenv("HF_CACHE_DIR", "/scr/benpry/hf_cache/hub")
 )
 val_tokenized_dataset = val_dataset.map(tokenize_function, batched=False)
 val_tokenized_dataset = val_tokenized_dataset.filter(
