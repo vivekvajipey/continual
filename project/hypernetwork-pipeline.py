@@ -125,6 +125,21 @@ dataloader = DataLoader(
     tokenized_dataset, batch_size=cfg.batch_size, shuffle=True, collate_fn=collate_fn
 )
 
+# ========
+# Load Validation Set
+# ========
+val_dataset = load_dataset(
+    "wikitext", "wikitext-2-raw-v1", split="validation", cache_dir="/scr/benpry/hf_cache/hub"
+)
+val_tokenized_dataset = val_dataset.map(tokenize_function, batched=False)
+val_tokenized_dataset = val_tokenized_dataset.filter(
+    lambda ex: ex["input_ids"] is not None and len(ex["input_ids"]) > 50
+)
+
+val_dataloader = DataLoader(
+    val_tokenized_dataset, batch_size=cfg.batch_size, shuffle=False, collate_fn=collate_fn
+)
+
 # ============
 # Choose Target Layers for LoRA Injection: q_proj and v_proj.
 # ============
@@ -183,9 +198,10 @@ def decode_tokens(updated_logits, base_logits, num_tokens=25):
     return {"updated": updated_decoded, "base": base_decoded}
 
 
-def save_checkpoint(epoch, global_step, loss_value):
+def save_checkpoint(epoch, global_step, loss_value, best=False):
     """
     Save a checkpoint locally and upload it to wandb.
+    If best is True, save the checkpoint as the best model.
     """
     checkpoint = {
         "epoch": epoch,
@@ -195,11 +211,12 @@ def save_checkpoint(epoch, global_step, loss_value):
         "optimizer_state_dict": optimizer.state_dict(),
         "loss": loss_value,
     }
-    checkpoint_filename = f"checkpoint_epoch{epoch}_step{global_step}.pt"
+    prefix = "best_" if best else ""
+    checkpoint_filename = f"{prefix}checkpoint_epoch{epoch}_step{global_step}.pt"
     checkpoint_path = os.path.join(cfg.checkpoint_dir, checkpoint_filename)
     torch.save(checkpoint, checkpoint_path)
     wandb.save(checkpoint_path)
-    print(f"Saved checkpoint: {checkpoint_path}")
+    print(f"Saved {'best ' if best else ''}checkpoint: {checkpoint_path}")
 
 
 def load_latest_checkpoint():
@@ -263,6 +280,8 @@ if checkpoint is not None:
     optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
     print(f"Resuming training from epoch {start_epoch}, global step {global_step}.")
 
+best_val_loss = float('inf')
+
 # ============
 # Training Loop
 # ============
@@ -321,6 +340,53 @@ for epoch in range(start_epoch, cfg.num_epochs):
             if global_step % cfg.checkpoint_interval == 0:
                 save_checkpoint(epoch + 1, global_step, loss.item())
 
+            # ------------------------------------------------------------
+            # Evaluate on a subset of the validation set every eval_interval steps.
+            # ------------------------------------------------------------
+            if global_step % cfg.eval_interval == 0:
+                subset_batches = 5  # Number of validation batches to use for evaluation.
+                eval_loss_total = 0.0
+                num_eval_samples = 0
+
+                model.eval()
+                with torch.no_grad():
+                    for i, val_batch in enumerate(val_dataloader):
+                        if i >= subset_batches:
+                            break
+                        for val_sample in val_batch:
+                            val_sample = val_sample.unsqueeze(0).to(cfg.device)
+                            fh, sh = split_input_ids(val_sample)
+                            outputs_first = model(fh, output_hidden_states=True)
+                            last_hidden_state = outputs_first.hidden_states[-1][:, -1, :]
+
+                            q_delta = compression_head_q(last_hidden_state)
+                            v_delta = compression_head_v(last_hidden_state)
+
+                            target_layer_q.lora_delta = q_delta
+                            target_layer_v.lora_delta = v_delta
+                            outputs_mod = model(sh, output_hidden_states=False)
+                            logits_mod = outputs_mod.logits
+
+                            target_layer_q.lora_delta = None
+                            target_layer_v.lora_delta = None
+                            full_context = torch.cat([fh, sh], dim=1)
+                            outputs_full = model(full_context, output_hidden_states=False)
+                            logits_full = outputs_full.logits
+                            sh_len = sh.shape[1]
+                            logits_full_second = logits_full[:, -sh_len:, :]
+
+                            log_probs_mod = F.log_softmax(logits_mod, dim=-1)
+                            probs_full = F.softmax(logits_full_second, dim=-1)
+                            eval_loss = F.kl_div(log_probs_mod, probs_full, reduction="batchmean")
+                            eval_loss_total += eval_loss.item()
+                            num_eval_samples += 1
+
+                avg_eval_loss = eval_loss_total / num_eval_samples if num_eval_samples > 0 else float('inf')
+                wandb.log({"eval_loss_subset": avg_eval_loss, "global_step": global_step})
+                print(f"Step {global_step} - Eval subset loss: {avg_eval_loss:.4f}")
+                model.train()
+            # ------------------------------------------------------------
+
         # Average loss over samples in the batch.
         batch_loss = batch_loss / batch.shape[0]
         optimizer.zero_grad()
@@ -337,10 +403,55 @@ for epoch in range(start_epoch, cfg.num_epochs):
                 "learning_rate": optimizer.param_groups[0]["lr"],
             }
         )
-
+    
     avg_loss = epoch_loss / len(dataloader)
-    print(f"Epoch {epoch+1}/{cfg.num_epochs} - Average Loss: {avg_loss:.4f}")
-    # Optionally, save a checkpoint at the end of each epoch.
+    print(f"Epoch {epoch+1}/{cfg.num_epochs} - Average Training Loss: {avg_loss:.4f}")
+
+    # (Optional) Full validation evaluation at the end of the epoch if desired.
+    val_loss_total = 0.0
+    num_val_samples = 0
+    model.eval()
+    with torch.no_grad():
+        for val_batch in tqdm(val_dataloader, desc=f"Full Validation Epoch {epoch+1}"):
+            for sample in val_batch:
+                sample = sample.unsqueeze(0).to(cfg.device)
+                fh, sh = split_input_ids(sample)
+                outputs_first = model(fh, output_hidden_states=True)
+                last_hidden_state = outputs_first.hidden_states[-1][:, -1, :]
+
+                q_delta = compression_head_q(last_hidden_state)
+                v_delta = compression_head_v(last_hidden_state)
+
+                target_layer_q.lora_delta = q_delta
+                target_layer_v.lora_delta = v_delta
+                outputs_mod = model(sh, output_hidden_states=False)
+                logits_mod = outputs_mod.logits
+
+                target_layer_q.lora_delta = None
+                target_layer_v.lora_delta = None
+                full_context = torch.cat([fh, sh], dim=1)
+                outputs_full = model(full_context, output_hidden_states=False)
+                logits_full = outputs_full.logits
+                sh_len = sh.shape[1]
+                logits_full_second = logits_full[:, -sh_len:, :]
+
+                log_probs_mod = F.log_softmax(logits_mod, dim=-1)
+                probs_full = F.softmax(logits_full_second, dim=-1)
+                loss_val = F.kl_div(log_probs_mod, probs_full, reduction="batchmean")
+                val_loss_total += loss_val.item()
+                num_val_samples += 1
+    avg_val_loss = val_loss_total / num_val_samples if num_val_samples > 0 else float('inf')
+    wandb.log({"val_loss_full": avg_val_loss, "epoch": epoch + 1, "global_step": global_step})
+    print(f"Epoch {epoch+1}/{cfg.num_epochs} - Full Validation Loss: {avg_val_loss:.4f}")
+
+    # Save best full validation checkpoint if improved.
+    if avg_val_loss < best_val_loss:
+        best_val_loss = avg_val_loss
+        save_checkpoint(epoch + 1, global_step, avg_val_loss, best=True)
+
+    # Save a checkpoint at the end of the epoch (latest model).
     save_checkpoint(epoch + 1, global_step, avg_loss)
+
+    model.train()
 
 print("Training complete.")
