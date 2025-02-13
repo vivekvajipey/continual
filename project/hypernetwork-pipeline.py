@@ -18,13 +18,13 @@ config = {
     "device": "cuda" if torch.cuda.is_available() else "cpu",
     "num_epochs": 3,
     "learning_rate": 1e-4,
-    "batch_size": 4,            # adjust depending on your GPU
-    "max_length": 512,          # max token length per sample (will be truncated/padded)
+    "batch_size": 4,  # adjust depending on your GPU
+    "max_length": 512,  # max token length per sample (will be truncated/padded)
     "lora_rank": 64,
-    "eval_interval": 50,        # steps between qualitative evaluations
-    "checkpoint_interval": 1000, # checkpoint every 1000 steps (adjust as needed)
+    "eval_interval": 50,  # steps between qualitative evaluations
+    "checkpoint_interval": 1000,  # checkpoint every 1000 steps (adjust as needed)
     "wandb_project": "lora-compression-head",
-    "checkpoint_dir": "/scr/tadimeti/checkpoints"  # local directory to store checkpoints
+    "checkpoint_dir": "/scr/benpry/checkpoints",  # local directory to store checkpoints
 }
 
 # Create checkpoint directory if it doesn't exist.
@@ -33,6 +33,7 @@ os.makedirs(config["checkpoint_dir"], exist_ok=True)
 # Initialize wandb.
 wandb.init(project=config["wandb_project"], config=config)
 cfg = wandb.config
+
 
 # ============
 # Compression Head Definition
@@ -45,22 +46,33 @@ class CompressionHead(nn.Module):
 
     The target linear layer (e.g. a query or value projection) has weight shape (out_features, in_features).
     """
+
     def __init__(self, hidden_dim, target_in_features, target_out_features, rank=64):
         super().__init__()
         self.rank = rank
         self.linear1 = nn.Linear(hidden_dim, rank)
-        self.linear2 = nn.Linear(rank, target_in_features * target_out_features)
+        self.linear2 = nn.Linear(
+            rank, (target_in_features + target_out_features) * rank
+        )
         self.target_in_features = target_in_features
         self.target_out_features = target_out_features
 
     def forward(self, hidden):
         # hidden: (batch_size, hidden_dim); assume batch_size == 1 for simplicity.
-        x = self.linear1(hidden)            # -> (batch_size, rank)
-        x = torch.nn.GELU()(x)              # Use GELU activation to avoid dead neurons.
-        x = self.linear2(x)                 # -> (batch_size, target_in_features * target_out_features)
+        x = self.linear1(hidden)  # -> (batch_size, rank)
+        x = torch.nn.GELU()(x)  # Use GELU activation to avoid dead neurons.
+        x = self.linear2(x)  # -> (batch_size, target_in_features * target_out_features)
         # Reshape to (batch_size, target_out_features, target_in_features)
-        delta = x.view(-1, self.target_out_features, self.target_in_features)
-        return delta.squeeze(0)           # -> (target_out_features, target_in_features)
+        delta_tall = x[:, : self.target_out_features * self.rank].reshape(
+            -1, self.target_out_features, self.rank
+        )
+        delta_wide = x[:, self.target_out_features * self.rank :].reshape(
+            -1, self.rank, self.target_in_features
+        )
+        # tall is of size (out, k) and wide is of size (k, in)
+        delta = delta_tall @ delta_wide
+        return delta.squeeze(0)  # -> (target_out_features, target_in_features)
+
 
 # ============
 # Load Model, Tokenizer, and Dataset
@@ -79,15 +91,22 @@ for param in model.parameters():
     param.requires_grad = False
 
 # Load WikiText-2 (raw version) using the Hugging Face datasets library.
-dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")
+dataset = load_dataset(
+    "wikitext", "wikitext-2-raw-v1", split="train", cache_dir="/scr/benpry/hf_cache/hub"
+)
+
 
 # Preprocessing: tokenize and truncate texts.
 def tokenize_function(ex):
     return tokenizer(ex["text"], truncation=True, max_length=cfg.max_length)
 
+
 tokenized_dataset = dataset.map(tokenize_function, batched=False)
 # Filter out examples that are too short to split into two halves.
-tokenized_dataset = tokenized_dataset.filter(lambda ex: ex["input_ids"] is not None and len(ex["input_ids"]) > 50)
+tokenized_dataset = tokenized_dataset.filter(
+    lambda ex: ex["input_ids"] is not None and len(ex["input_ids"]) > 50
+)
+
 
 # DataLoader using fast tokenization (handles padding internally).
 def collate_fn(examples):
@@ -97,11 +116,14 @@ def collate_fn(examples):
         padding="max_length",
         truncation=True,
         max_length=cfg.max_length,
-        return_tensors="pt"
+        return_tensors="pt",
     )
     return encodings["input_ids"]
 
-dataloader = DataLoader(tokenized_dataset, batch_size=cfg.batch_size, shuffle=True, collate_fn=collate_fn)
+
+dataloader = DataLoader(
+    tokenized_dataset, batch_size=cfg.batch_size, shuffle=True, collate_fn=collate_fn
+)
 
 # ============
 # Choose Target Layers for LoRA Injection: q_proj and v_proj.
@@ -110,11 +132,13 @@ dataloader = DataLoader(tokenized_dataset, batch_size=cfg.batch_size, shuffle=Tr
 target_layer_q = model.model.layers[0].self_attn.q_proj
 original_forward_q = target_layer_q.forward
 
+
 def lora_forward_q(input):
     weight = target_layer_q.weight
     if hasattr(target_layer_q, "lora_delta") and target_layer_q.lora_delta is not None:
         weight = weight + target_layer_q.lora_delta
     return F.linear(input, weight, target_layer_q.bias)
+
 
 target_layer_q.forward = lora_forward_q
 
@@ -122,13 +146,16 @@ target_layer_q.forward = lora_forward_q
 target_layer_v = model.model.layers[0].self_attn.v_proj
 original_forward_v = target_layer_v.forward
 
+
 def lora_forward_v(input):
     weight = target_layer_v.weight
     if hasattr(target_layer_v, "lora_delta") and target_layer_v.lora_delta is not None:
         weight = weight + target_layer_v.lora_delta
     return F.linear(input, weight, target_layer_v.bias)
 
+
 target_layer_v.forward = lora_forward_v
+
 
 # ============
 # Helper Functions
@@ -144,6 +171,7 @@ def split_input_ids(input_ids):
     second_half = input_ids[:, half:]
     return first_half, second_half
 
+
 def decode_tokens(updated_logits, base_logits, num_tokens=25):
     """
     Decode the first `num_tokens` token predictions from both updated and baseline logits.
@@ -153,6 +181,7 @@ def decode_tokens(updated_logits, base_logits, num_tokens=25):
     updated_decoded = tokenizer.decode(updated_token_ids)
     base_decoded = tokenizer.decode(base_token_ids)
     return {"updated": updated_decoded, "base": base_decoded}
+
 
 def save_checkpoint(epoch, global_step, loss_value):
     """
@@ -164,7 +193,7 @@ def save_checkpoint(epoch, global_step, loss_value):
         "compression_head_q_state_dict": compression_head_q.state_dict(),
         "compression_head_v_state_dict": compression_head_v.state_dict(),
         "optimizer_state_dict": optimizer.state_dict(),
-        "loss": loss_value
+        "loss": loss_value,
     }
     checkpoint_filename = f"checkpoint_epoch{epoch}_step{global_step}.pt"
     checkpoint_path = os.path.join(cfg.checkpoint_dir, checkpoint_filename)
@@ -172,12 +201,15 @@ def save_checkpoint(epoch, global_step, loss_value):
     wandb.save(checkpoint_path)
     print(f"Saved checkpoint: {checkpoint_path}")
 
+
 def load_latest_checkpoint():
     """
     Load the latest checkpoint from the checkpoint directory, if any exist.
     Returns (checkpoint, filename) or (None, None) if no checkpoint is found.
     """
-    checkpoint_files = glob.glob(os.path.join(cfg.checkpoint_dir, "checkpoint_epoch*_step*.pt"))
+    checkpoint_files = glob.glob(
+        os.path.join(cfg.checkpoint_dir, "checkpoint_epoch*_step*.pt")
+    )
     if checkpoint_files:
         latest_checkpoint_file = max(checkpoint_files, key=os.path.getctime)
         checkpoint = torch.load(latest_checkpoint_file, map_location=cfg.device)
@@ -187,6 +219,7 @@ def load_latest_checkpoint():
         print("No checkpoint found, starting from scratch.")
         return None, None
 
+
 # ============
 # Initialize Compression Heads and Optimizer
 # ============
@@ -194,23 +227,29 @@ hidden_dim = model.config.hidden_size  # e.g., 2048 or as defined by the model
 
 # For q_proj.
 q_out_features, q_in_features = target_layer_q.weight.shape
-compression_head_q = CompressionHead(hidden_dim, q_in_features, q_out_features, rank=cfg.lora_rank)
+compression_head_q = CompressionHead(
+    hidden_dim, q_in_features, q_out_features, rank=cfg.lora_rank
+)
 compression_head_q.to(cfg.device)
 
 # For v_proj.
 v_out_features, v_in_features = target_layer_v.weight.shape
-compression_head_v = CompressionHead(hidden_dim, v_in_features, v_out_features, rank=cfg.lora_rank)
+compression_head_v = CompressionHead(
+    hidden_dim, v_in_features, v_out_features, rank=cfg.lora_rank
+)
 compression_head_v.to(cfg.device)
 
 # Create an optimizer that updates both compression heads.
 optimizer = optim.Adam(
     list(compression_head_q.parameters()) + list(compression_head_v.parameters()),
-    lr=cfg.learning_rate
+    lr=cfg.learning_rate,
 )
 
 # Calculate total steps for cosine decay.
 total_steps = cfg.num_epochs * len(dataloader)
-scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=total_steps, eta_min=1e-6)
+scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+    optimizer, T_max=total_steps, eta_min=1e-6
+)
 
 # Try loading a checkpoint to resume training.
 start_epoch = 0
@@ -236,22 +275,30 @@ for epoch in range(start_epoch, cfg.num_epochs):
         for sample in batch:
             sample = sample.unsqueeze(0).to(cfg.device)  # shape: (1, seq_len)
             first_half, second_half = split_input_ids(sample)
-            
+
             # (A) Run first half to obtain summary hidden state.
             with torch.no_grad():
                 outputs_first = model(first_half, output_hidden_states=True)
-            last_hidden_state = outputs_first.hidden_states[-1][:, -1, :]  # shape: (1, hidden_dim)
-            
+            last_hidden_state = outputs_first.hidden_states[-1][
+                :, -1, :
+            ]  # shape: (1, hidden_dim)
+
             # (B) Compute LoRA deltas for q_proj and v_proj.
-            q_delta = compression_head_q(last_hidden_state)  # shape: (q_out_features, q_in_features)
-            v_delta = compression_head_v(last_hidden_state)  # shape: (v_out_features, v_in_features)
-            
+            q_delta = compression_head_q(
+                last_hidden_state
+            )  # shape: (q_out_features, q_in_features)
+            v_delta = compression_head_v(
+                last_hidden_state
+            )  # shape: (v_out_features, v_in_features)
+
             # (C) Run modified model on second half (with injected deltas).
             target_layer_q.lora_delta = q_delta
             target_layer_v.lora_delta = v_delta
             outputs_mod = model(second_half, output_hidden_states=False)
-            logits_mod = outputs_mod.logits  # shape: (1, second_half_length, vocab_size)
-            
+            logits_mod = (
+                outputs_mod.logits
+            )  # shape: (1, second_half_length, vocab_size)
+
             # (D) Run baseline full-context model (no injection).
             target_layer_q.lora_delta = None
             target_layer_v.lora_delta = None
@@ -261,37 +308,39 @@ for epoch in range(start_epoch, cfg.num_epochs):
             logits_full = outputs_full.logits
             second_half_len = second_half.shape[1]
             logits_full_second = logits_full[:, -second_half_len:, :]
-            
+
             # (E) Compute KL divergence loss.
             log_probs_mod = F.log_softmax(logits_mod, dim=-1)
             probs_full = F.softmax(logits_full_second, dim=-1)
             loss = F.kl_div(log_probs_mod, probs_full, reduction="batchmean")
-            
+
             batch_loss += loss
             global_step += 1
 
             # Save a checkpoint every checkpoint_interval steps.
             if global_step % cfg.checkpoint_interval == 0:
-                save_checkpoint(epoch+1, global_step, loss.item())
-        
+                save_checkpoint(epoch + 1, global_step, loss.item())
+
         # Average loss over samples in the batch.
         batch_loss = batch_loss / batch.shape[0]
         optimizer.zero_grad()
         batch_loss.backward()
         optimizer.step()
         scheduler.step()  # Update the learning rate using cosine decay.
-        
+
         epoch_loss += batch_loss.item()
-        wandb.log({
-            "loss": batch_loss.item(),
-            "epoch": epoch+1,
-            "global_step": global_step,
-            "learning_rate": optimizer.param_groups[0]['lr']
-        })
-    
+        wandb.log(
+            {
+                "loss": batch_loss.item(),
+                "epoch": epoch + 1,
+                "global_step": global_step,
+                "learning_rate": optimizer.param_groups[0]["lr"],
+            }
+        )
+
     avg_loss = epoch_loss / len(dataloader)
     print(f"Epoch {epoch+1}/{cfg.num_epochs} - Average Loss: {avg_loss:.4f}")
     # Optionally, save a checkpoint at the end of each epoch.
-    save_checkpoint(epoch+1, global_step, avg_loss)
+    save_checkpoint(epoch + 1, global_step, avg_loss)
 
 print("Training complete.")
